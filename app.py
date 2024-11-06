@@ -18,12 +18,19 @@ app = Flask(__name__)
 WORKSPACE_ID = os.environ.get('WORKSPACE_ID')
 SHARED_KEY = os.environ.get('SHARED_KEY')
 
-
 if (WORKSPACE_ID is None or SHARED_KEY is None):
     raise Exception("Please add azure sentinel customer_id and shared_key to azure key vault/application settings of web app") 
 
+# modified the original code to not use the workspace id
+# and shared key from the environment variables as this would
+# expose them to strata which is not appropriate
+BASIC_AUTH_USERNAME = os.environ.get('BASIC_AUTH_USERNAME')
+BASIC_AUTH_PASSWORD = os.environ.get('BASIC_AUTH_PASSWORD')
 
-BASIC_AUTH = base64.b64encode("{}:{}".format(WORKSPACE_ID, SHARED_KEY).encode()).decode("utf-8")
+if (BASIC_AUTH_USERNAME is None or BASIC_AUTH_PASSWORD is None):
+    raise Exception("Please add basic auth username and password to azure key vault/application settings of web app")
+
+BASIC_AUTH = base64.b64encode("{}:{}".format(BASIC_AUTH_USERNAME, BASIC_AUTH_PASSWORD).encode()).decode("utf-8")
 LOG_TYPE = 'Log-Type'
 HTTPS = 'https://'
 AZURE_URL = '.ods.opinsights.azure.com'
