@@ -97,10 +97,21 @@ def post_data_auth(headers, body):
 
 @app.route('/', methods=['POST'])
 def func():
+    logging.basicConfig(level=logging.DEBUG)
+    logging.info("request headers")
+    logging.info(request.headers)
+    logging.info("request data")
+    logging.info(gzip.decompress(request.get_data()))
+
     auth_headers = request.headers.get("authorization").split(",")
     body = request.get_data()
     basic_auth_header = ''
     shared_key_header = ''
+
+
+
+
+
     try:
         for auth in auth_headers:
             if "Basic" in auth:
@@ -108,6 +119,7 @@ def func():
                 if (basic_auth_header.split("Basic ")[1] != BASIC_AUTH):
                     logging.error("UnAuthorized Basic header mismatch %s vs %s", basic_auth_header, BASIC_AUTH)
                     raise UnAuthorizedException()
+                logging.debug("Basic Auth header matched")
             if "SharedKey" in auth:
                 shared_key_header = auth.strip()
         if basic_auth_header == '':
@@ -162,4 +174,5 @@ def health():
 
 
 if __name__ == '__main__':
+   logging.basicConfig(level=logging.DEBUG)
    app.run()
