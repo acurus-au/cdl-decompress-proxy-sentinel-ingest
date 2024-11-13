@@ -14,6 +14,14 @@ import hmac
 
 app = Flask(__name__)
 
+if __name__ != '__main__':
+    gunicorn_logger = app.logger.getLogger('gunicorn.error')
+    app.logger.handlers = gunicorn_logger.handlers
+    app.logger.setLevel(gunicorn_logger.level)
+else:
+    app.logger.basicConfig(level=app.logger.INFO)
+    app.logger.setLevel(app.logger.INFO)
+
 
 WORKSPACE_ID = os.environ.get('WORKSPACE_ID')
 SHARED_KEY = os.environ.get('SHARED_KEY')
@@ -69,7 +77,7 @@ def post(headers, body, isAuth):
     auth_string = ' auth ' if isAuth else ' '
     response = POOL.post(URI, data=body, headers=headers)
     if (response.status_code >= 200 and response.status_code <= 299):
-        logging.debug('accepted {}'.format(auth_string))
+        app.logger.debug('accepted {}'.format(auth_string))
     else:
         resp_body = str(response.json())
         resp_headers = json.dumps(headers)
@@ -97,33 +105,21 @@ def post_data_auth(headers, body):
 
 @app.route('/', methods=['POST'])
 def func():
-    logging.basicConfig(level=logging.DEBUG)
-    logging.info("request headers")
-    logging.info(request.headers)
-    logging.info("request data")
-    logging.info(gzip.decompress(request.get_data()))
-
     auth_headers = request.headers.get("authorization").split(",")
     body = request.get_data()
     basic_auth_header = ''
     shared_key_header = ''
-
-
-
-
-
     try:
         for auth in auth_headers:
             if "Basic" in auth:
                 basic_auth_header = auth.strip()
                 if (basic_auth_header.split("Basic ")[1] != BASIC_AUTH):
-                    logging.error("UnAuthorized Basic header mismatch %s vs %s", basic_auth_header, BASIC_AUTH)
+                    app.logger.error("UnAuthorized Basic header mismatch %s vs %s", basic_auth_header, BASIC_AUTH)
                     raise UnAuthorizedException()
-                logging.debug("Basic Auth header matched")
             if "SharedKey" in auth:
                 shared_key_header = auth.strip()
         if basic_auth_header == '':
-            logging.error("UnAuthorized Basic header")
+            app.logger.error("UnAuthorized Basic header")
             raise UnAuthorizedException()   
         log_type = request.headers.get(LOG_TYPE)
         xms_date = ", ".join([each.strip() for each in request.headers.get('x-ms-date').split(",")]).replace("UTC", "GMT")
@@ -133,36 +129,36 @@ def func():
              'Log-Type': log_type,
              'x-ms-date': xms_date        
         }
-        logging.debug(headers)
+        app.logger.debug(headers)
         # Decompress payload
         decompressed = gzip.decompress(body)
-        logging.debug(decompressed)  
+        app.logger.debug(decompressed)  
         decomp_body_length = len(decompressed)
         if decomp_body_length == 0:
             if len(body) == 0:
-              logging.error("decompressed: {} vs body: {}".format(decompressed, body))
+              app.logger.error("decompressed: {} vs body: {}".format(decompressed, body))
               return FAILURE_RESPONSE, 400, APPLICATION_JSON 
             else:
               return FAILURE_RESPONSE, 500, APPLICATION_JSON 
         # Use Authorization header from request
         post_data_auth(headers, decompressed)
-        logging.debug("processed request auth")
+        app.logger.debug("processed request auth")
     except ValueError as e:
-        logging.error("ValueError: {}{}{}".format(headers, e, decompressed))
+        app.logger.error("ValueError: {}{}{}".format(headers, e, decompressed))
         return FAILURE_RESPONSE, 500, APPLICATION_JSON 
     except UnAuthorizedException:
         return FAILURE_RESPONSE, 401, APPLICATION_JSON 
     except ProcessingException as e:
-        logging.debug(e)
+        app.logger.debug(e)
         try:
             # Create Authorization header
             post_data(WORKSPACE_ID, SHARED_KEY, decompressed, log_type, length=decomp_body_length)
-            logging.debug("processed request by creating auth")
+            app.logger.debug("processed request by creating auth")
         except ProcessingException as err:
-            logging.error("Exception: {}{}{}".format(headers, err, decompressed))
+            app.logger.error("Exception: {}{}{}".format(headers, err, decompressed))
             return FAILURE_RESPONSE, 500, APPLICATION_JSON 
     except Exception as e:
-        logging.error(e)
+        app.logger.error(e)
         return FAILURE_RESPONSE, 500, APPLICATION_JSON 
        
     return SUCCESS_RESPONSE, 200, APPLICATION_JSON 
@@ -174,5 +170,4 @@ def health():
 
 
 if __name__ == '__main__':
-   logging.basicConfig(level=logging.DEBUG)
    app.run()
