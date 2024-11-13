@@ -28,7 +28,7 @@ def dump_request():
     app.logger.debug(headers)
     app.logger.debug("Body of incoming request:")
     app.logger.debug(body)
-    return jsonify({"message":"log accepted"})
+    return jsonify({'success':True})
 
 # main driver function
 if __name__ == '__main__':
