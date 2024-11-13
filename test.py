@@ -9,18 +9,25 @@ import logging
 # current module (__name__) as argument.
 app = Flask(__name__)
 
+if __name__ != '__main__':
+    gunicorn_logger = logging.getLogger('gunicorn.error')
+    app.logger.handlers = gunicorn_logger.handlers
+    app.logger.setLevel(gunicorn_logger.level)
+else:
+    logging.basicConfig(level=logging.INFO)
+    app.logger.setLevel(logging.INFO)
+
 # The route() function of the Flask class is a decorator, 
 # which tells the application which URL should call 
 # the associated function.
 @app.route('/', methods=['POST'])
 def dump_request():
-    logging.basicConfig(level=logging.DEBUG)
     headers = request.headers
     body = request.get_data()
-    logging.debug("Headers of incoming request:")
-    logging.debug(headers)
-    logging.debug("Body of incoming request:")
-    logging.debug(body)
+    app.logger.debug("Headers of incoming request:")
+    app.logger.debug(headers)
+    app.logger.debug("Body of incoming request:")
+    app.logger.debug(body)
     return jsonify({"message":"log accepted"})
 
 # main driver function
