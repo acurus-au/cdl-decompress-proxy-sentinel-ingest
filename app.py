@@ -12,6 +12,10 @@ import hashlib
 import hmac
 
 
+# this is making use of the Azure Monitor Data Collector API
+# https://learn.microsoft.com/en-us/azure/azure-monitor/logs/data-collector-api?
+# this is a legacy way of ingesting data but is still supported
+
 app = Flask(__name__)
 
 if __name__ != '__main__':
@@ -72,7 +76,7 @@ def build_signature(customer_id, shared_key, date, content_length, method, conte
     authorization = "SharedKey {}:{}".format(customer_id,encoded_hash)
     return authorization
 
-
+# This method actually calls the Log Analytics API
 def post(headers, body, isAuth):
     auth_string = ' auth ' if isAuth else ' '
     response = POOL.post(URI, data=body, headers=headers)
@@ -85,7 +89,8 @@ def post(headers, body, isAuth):
         raise ProcessingException("ProcessingException for{}: {}".format(auth_string, failure_resp)) 
 
 
-# Build Auth and send request to the POST API
+# This method creates the Authorization header and calls the
+# Log Analytics API
 def post_data(customer_id, shared_key, body, log_type, length=0):
     rfc1123date = datetime.datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
     signature = build_signature(customer_id, shared_key, rfc1123date, length, POST_METHOD, CONTENT_TYPE, RESOURCE)
@@ -98,7 +103,8 @@ def post_data(customer_id, shared_key, body, log_type, length=0):
     post(headers, body, False)
 
 
-# Use Auth and send request to the POST API
+# This method uses the Authorization header from the original incoming
+# request and calls the Log Analytics API
 def post_data_auth(headers, body):
     post(headers, body, True)
 
@@ -120,9 +126,20 @@ def func():
                 shared_key_header = auth.strip()
         if basic_auth_header == '':
             app.logger.error("UnAuthorized Basic header")
-            raise UnAuthorizedException()   
-        log_type = request.headers.get(LOG_TYPE)
-        xms_date = ", ".join([each.strip() for each in request.headers.get('x-ms-date').split(",")]).replace("UTC", "GMT")
+            raise UnAuthorizedException()
+        # check to see if the header Log-Type is present
+        if request.headers.get(LOG_TYPE) is None:
+            app.logger.debug("Log-Type header is missing")
+            log_type = 'Unspecified'
+        else:
+            log_type = request.headers.get(LOG_TYPE)
+        # check to see if the header x-ms-date is present
+        # strata does not send this header anymore it seems
+        if request.headers.get('x-ms-date') is None:
+            app.logger.debug("x-ms-date header is missing")
+            xms_date = ''
+        else:
+            xms_date = ", ".join([each.strip() for each in request.headers.get('x-ms-date').split(",")]).replace("UTC", "GMT")
         headers = {
              'Content-Type': 'application/json; charset=UTF-8',
              'Authorization': shared_key_header,
