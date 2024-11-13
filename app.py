@@ -15,12 +15,12 @@ import hmac
 app = Flask(__name__)
 
 if __name__ != '__main__':
-    gunicorn_logger = app.logger.getLogger('gunicorn.error')
+    gunicorn_logger = logging.getLogger('gunicorn.error')
     app.logger.handlers = gunicorn_logger.handlers
     app.logger.setLevel(gunicorn_logger.level)
 else:
-    app.logger.basicConfig(level=app.logger.INFO)
-    app.logger.setLevel(app.logger.INFO)
+    logging.basicConfig(level=logging.INFO)
+    app.logger.setLevel(logging.INFO)
 
 
 WORKSPACE_ID = os.environ.get('WORKSPACE_ID')
