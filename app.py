@@ -147,6 +147,13 @@ def func():
              'x-ms-date': xms_date        
         }
         app.logger.debug(headers)
+
+        all_headers = request.headers
+
+        # convert all_headers to json
+        all_headers = json.dumps(dict(all_headers))
+        app.logger.debug(all_headers)
+
         # Decompress payload
         decompressed = gzip.decompress(body)
         app.logger.debug(decompressed)  
